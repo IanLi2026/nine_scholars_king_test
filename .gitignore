@@ -1,0 +1,18 @@
+# Build and compiler output
+**/build/
+.gradle/
+.kotlin/
+.externalNativeBuild/
+.cxx/
+
+# Local IDE and SDK settings
+.idea/
+*.iml
+local.properties
+integration.local.properties
+.DS_Store
+
+# Local testing output
+captures/
+diagnostics/
+*.log
