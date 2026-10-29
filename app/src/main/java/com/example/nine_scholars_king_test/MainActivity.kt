@@ -6,31 +6,17 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.LaunchedEffect
-import androidx.lifecycle.ViewModelProvider
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModelProvider
 import com.example.nine_scholars_king_test.ui.theme.Nine_scholars_king_testTheme
 
 class MainActivity : ComponentActivity() {
@@ -43,11 +29,11 @@ class MainActivity : ComponentActivity() {
         val credentialsStore = HostCredentialsStore(this)
         val transferStore = CredentialTransferStore(this)
         transferMode = transferStore.load()
-        val openExamModel = ViewModelProvider(this)[OpenExamViewModel::class.java]
+        val model = ViewModelProvider(this)[OpenExamViewModel::class.java]
         setContent {
-            LaunchedEffect(openExamModel.pendingExam) {
-                openExamModel.pendingExam?.let { exam ->
-                    openExamModel.pendingExam = null
+            LaunchedEffect(model.pendingExam) {
+                model.pendingExam?.let { exam ->
+                    model.pendingExam = null
                     openExam(exam)
                 }
             }
@@ -57,44 +43,44 @@ class MainActivity : ComponentActivity() {
                 if (showSettings) {
                     HostSettingsDialog(credentials, onSave = { updated ->
                         val saved = runCatching { credentialsStore.save(updated) }.isSuccess
-                        if (saved) {
-                            credentials = updated
-                            showSettings = false
-                        }
+                        if (saved) { credentials = updated; showSettings = false }
                         saved
                     }, onDismiss = { showSettings = false })
                 }
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Box(
-                        modifier = Modifier.fillMaxSize().padding(innerPadding),
-                        contentAlignment = Alignment.TopCenter
-                    ) {
-                        Column(
-                            modifier = Modifier.widthIn(max = 720.dp).fillMaxWidth()
-                                .testTag("exam-list").verticalScroll(rememberScrollState()).padding(24.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(
-                                    stringResource(R.string.choose_exam),
-                                    style = MaterialTheme.typography.headlineMedium
-                                )
-                                HostEnvironmentInfo()
-                                Text(
-                                    "填写创建参数，按需查询等级、模拟卷和权益，再创建考试进入答题。",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                TextButton(onClick = { showSettings = true }, enabled = !openExamModel.busy,
-                                    modifier = Modifier.testTag("host-settings-open")) {
-                                    Text(stringResource(if (credentials == null)
-                                        R.string.host_settings_required else R.string.host_settings))
+                Scaffold { padding ->
+                    Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 24.dp, vertical = 12.dp)
+                        .testTag("exam-list"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Surface(color = MaterialTheme.colorScheme.primaryContainer,
+                                shape = MaterialTheme.shapes.medium) {
+                                Text("考", modifier = Modifier.padding(12.dp),
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            }
+                            Column(Modifier.weight(1f)) {
+                                Text(stringResource(R.string.choose_exam), style = MaterialTheme.typography.headlineSmall)
+                                Text("选择等级与试卷，开始本次考试", style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            OutlinedButton(onClick = { showSettings = true }, enabled = !model.busy,
+                                modifier = Modifier.testTag("host-settings-open")) {
+                                Text(stringResource(if (credentials == null) R.string.host_settings_required else R.string.host_settings))
+                            }
+                        }
+                        OpenExamPanel(model, credentials, onOpen = ::openExam,
+                            modifier = Modifier.weight(1f), connectionContent = {
+                                var showCredentials by rememberSaveable { mutableStateOf(false) }
+                                TextButton(onClick = { showCredentials = !showCredentials },
+                                    modifier = Modifier.testTag("home-credentials-toggle")) {
+                                    Text(if (showCredentials) "收起凭据" else "查看接入凭据")
                                 }
-                                credentials?.let { current ->
+                                if (showCredentials) credentials?.let { current ->
                                     SelectionContainer {
                                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                            Text("appId: ${current.appId}",
+                                            Text("appId: ${current.appId}", style = MaterialTheme.typography.bodySmall,
                                                 modifier = Modifier.testTag("credential-app-id"))
-                                            Text("appKey: ${current.appKey}",
+                                            Text("appKey: ${current.appKey}", style = MaterialTheme.typography.bodySmall,
                                                 modifier = Modifier.testTag("credential-app-key"))
                                         }
                                     }
@@ -102,10 +88,10 @@ class MainActivity : ComponentActivity() {
                                 CredentialTransferSelector(transferMode, onSelect = { mode ->
                                     transferMode = mode
                                     transferStore.save(mode)
-                                })
-                            }
-                            OpenExamPanel(openExamModel, credentials, onOpen = ::openExam)
-                        }
+                                }, enabled = !model.busy, stacked = true)
+                                HorizontalDivider()
+                                HostEnvironmentInfo()
+                            })
                     }
                 }
             }

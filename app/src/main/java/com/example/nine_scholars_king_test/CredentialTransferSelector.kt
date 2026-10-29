@@ -16,18 +16,21 @@ import androidx.compose.ui.unit.dp
 internal fun CredentialTransferSelector(
     selected: CredentialTransferMode,
     onSelect: (CredentialTransferMode) -> Unit,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    stacked: Boolean = false
 ) {
+    val chips: @Composable () -> Unit = {
+        CredentialTransferMode.entries.forEach { mode ->
+            FilterChip(selected = selected == mode, enabled = enabled,
+                onClick = { if (selected != mode) onSelect(mode) },
+                label = { Text(mode.label) },
+                modifier = Modifier.testTag("transfer-mode-${mode.value}"))
+        }
+    }
     Column {
         Text("凭据传入方式")
-        Row(Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            CredentialTransferMode.entries.forEach { mode ->
-                FilterChip(selected = selected == mode, enabled = enabled,
-                    onClick = { if (selected != mode) onSelect(mode) },
-                    label = { Text(mode.label) },
-                    modifier = Modifier.testTag("transfer-mode-${mode.value}"))
-            }
-        }
+        if (stacked) Column { chips() }
+        else Row(Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) { chips() }
     }
 }

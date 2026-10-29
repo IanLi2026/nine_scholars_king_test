@@ -41,7 +41,8 @@ class ExamListTest {
         composeRule.onNodeWithText("选择考试").assertIsDisplayed()
         composeRule.activityRule.scenario.recreate()
         composeRule.onNodeWithText("选择考试").assertIsDisplayed()
-        composeRule.onNodeWithTag("open-create").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("open-create").assertIsDisplayed()
+        composeRule.onNodeWithTag("open-request-settings").performScrollTo().performClick()
         composeRule.onNodeWithTag("open-request").performScrollTo().performTextReplacement("request-persist-fixture")
         composeRule.activityRule.scenario.recreate()
         composeRule.onNodeWithTag("open-request").performScrollTo().assertTextContains("request-persist-fixture")
@@ -109,15 +110,14 @@ class ExamListTest {
             composeRule.waitUntil(timeoutMillis = 5000) {
                 composeRule.onAllNodesWithTag("open-create").fetchSemanticsNodes().isNotEmpty()
             }
-            composeRule.onNodeWithTag("open-create").performScrollTo().assertIsDisplayed()
+            composeRule.onNodeWithTag("open-create").assertIsDisplayed()
         } finally { instrumentation.removeMonitor(monitor) }
     }
 
     @Test
-    fun invalidLevelShowsErrorWithoutCreatingExam() {
-        composeRule.onNodeWithTag("open-level").performScrollTo().performTextReplacement("0")
-        composeRule.onNodeWithTag("open-create").performScrollTo().performClick()
-        composeRule.onNodeWithTag("open-result").performScrollTo().assertTextContains("level_id 须为正整数", substring = true)
+    fun levelAndPaperAreSelectorsRatherThanEditableIds() {
+        composeRule.onNodeWithTag("open-level").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("open-paper").performScrollTo().assertIsDisplayed()
     }
 
     private fun findWebView(view: View): WebView? {

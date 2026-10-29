@@ -16,7 +16,9 @@ internal enum class CredentialTransferMode(val value: String, val label: String)
 
 internal class CredentialTransferStore(context: Context) {
     private val preferences = context.getSharedPreferences("host_transfer", Context.MODE_PRIVATE)
-    fun load() = CredentialTransferMode.from(preferences.getString("mode", null))
+    fun load() = CredentialTransferMode.from(
+        preferences.getString("mode", CredentialTransferMode.NATIVE.value)
+    )
     fun save(mode: CredentialTransferMode) {
         preferences.edit().putString("mode", mode.value).apply()
     }

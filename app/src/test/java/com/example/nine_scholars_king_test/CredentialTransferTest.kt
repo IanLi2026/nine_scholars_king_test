@@ -34,6 +34,8 @@ class CredentialTransferTest {
 
     @Test
     fun unknownStoredModeDefaultsToNativeInterface() {
+        assertEquals(CredentialTransferMode.NATIVE, CredentialTransferMode.from(null))
+        assertEquals(CredentialTransferMode.NATIVE, CredentialTransferMode.from(""))
         assertEquals(CredentialTransferMode.NATIVE, CredentialTransferMode.from("unknown"))
     }
 }

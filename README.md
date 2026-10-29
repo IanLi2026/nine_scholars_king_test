@@ -1,6 +1,6 @@
 # 安卓考试测试壳
 
-启动 App 后横屏显示考试接入首页。填写 `external_user_id`、`paper_kind`、`level_id`、`paper_id` 和 `request_id`，点击“创建考试并进入”调用 `POST /mock/open/exams`。仅在 HTTP 成功、`errcode=0` 且返回完整的 `data.examination_id` / `data.exam_token` 时进入现有考试 WebView。
+启动 App 后横屏显示考试接入首页。左侧填写考生标识并选择考试类型、等级和试卷，点击“开始考试”调用 `POST /mock/open/exams`。右侧管理连接设置；窄窗口自动切换为上下布局。请求编号可在“请求设置”中修改或换新。仅在 HTTP 成功、`errcode=0` 且返回完整的 `data.examination_id` / `data.exam_token` 时进入现有考试 WebView。
 
 首页按钮按提供的 `open_exam_test(1).html` 调用：
 
@@ -10,9 +10,11 @@
 | 等级列表 | `GET /mock/open/levels?paper_kind=...` |
 | 该等级模拟卷 | `GET /mock/open/levels/{level_id}/papers?external_user_id=...` |
 | 权益 | `GET /mock/open/tenant/quota?external_user_id=...` |
-| 创建考试并进入 | `POST /mock/open/exams`，正式考省略 `paper_id` |
+| 开始考试 | `POST /mock/open/exams`，正式考省略 `paper_id` |
 
-查询结果在首页显示，可选中复制；查看返回的等级和试卷 ID 后填入对应字段。配置与 request_id 自动保存在本机，网络失败后重试保留同一个 request_id；主动换新后再次创建会重新扣次。按钮在请求期间禁用，查询接口不自动创建考试。返回首页后可点击“重新进入已创建场次”继续当前进程中已创建的考试，无需再次建场。
+等级和模拟卷使用接口返回的下拉列表选择，显示名称和真实 ID，支持 New HSK。进入首页或切换接口地址、凭据、考试类型时自动加载等级；选择等级或更换 external_user_id 后加载对应模拟卷。正式考隐藏试卷选择且不请求模拟卷。加载失败可点相应按钮重试，无数据或列表尚未就绪时禁止创建。首页不提供原始接口结果区，只显示必要的状态和失败提示；“查看权益”使用弹窗显示租户、考生及各等级的剩余/已用/总次数。
+
+配置与 request_id 自动保存在本机，网络失败后重试保留同一个 request_id；主动换新后再次创建会重新扣次。查询接口不自动创建考试。返回首页后可点击“重新进入已创建场次”继续当前进程中已创建的考试，无需再次建场。
 
 创建结果的场次 ID 和 token 保留为字符串，查询参数逐项编码，打开地址为 `https://staging-public.hskmock.com/hskmock_webview/index.html#/exam?examination_id=...&exam_token=...&title=...&paper_kind=...`。三种凭据传入方式、签名桥、保存退出继续沿用。
 
@@ -40,7 +42,7 @@ App 开发人员可先阅读 [App 端职责、WebView 传入值及来源说明](
 未配置本机文件时使用无效占位值，仅供编译和代码检查；实际联调必须配置有效凭据。
 
 1. 在 Android Studio 选择 `debug` 构建并运行，或执行 `./gradlew.bat assembleDebug` 后安装 `app/build/outputs/apk/debug/app-debug.apk`。
-2. 启动 App，首页完整显示本次提供的测试 `appId`、`appKey`。在“接入配置”内可查看和修改；已保存的自定义凭据优先，点击“使用本次测试凭据”可恢复预置值，再点击保存。
+2. 启动 App，右侧“查看接入凭据”可展开查看 `appId`、`appKey`。顶部“接入配置”可修改；已保存的自定义凭据优先，点击“使用本次测试凭据”可恢复预置值，再点击保存。
 3. 设备开启自动校时并连接互联网，填写首页参数，按需查询等级、模拟卷和权益，点击“创建考试并进入”。无需启动电脑服务、连接同一局域网或授予本地网络权限。
 4. 在首页选择“URL 参数”“JS 注入”“原生接口注入”。考试页顶部联调栏默认隐藏，点击右上角“工具”可展开查看 URL、时间诊断和传入方式，点击“隐藏工具”收起。展开/收起不会重载 WebView。所选传入方式会保存在本机；切换传入方式时先保存进度，成功后重建 WebView，重新打开同场考试；保存失败可重试、取消或选择仍然切换。
 
@@ -121,7 +123,7 @@ WebView 在 `loadUrl` 前通过 `addJavascriptInterface` 注册 `window.JxwBridg
 
 ## 远程设备闪退排查
 
-点击图标后的首页不自动访问考试服务。只有点击查询或创建按钮才请求接口，创建成功后打开 WebView。
+进入首页会通过只读接口自动加载等级和模拟卷；点击“创建考试并进入”才创建考试并打开 WebView。
 目前未取得故障设备日志，不能将首页启动退出归因于网络或网页组件。
 
 在能连接故障设备的电脑上安装 Android platform-tools，复现退出后执行：

@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
@@ -27,8 +28,9 @@ class HostSettingsTest {
 
     @Test
     fun providedCredentialsAreVisibleAndSettingsCanBeCancelled() {
-        composeRule.onNodeWithText("appId: ${ExamConfig.defaultCredentials.appId}").assertIsDisplayed()
-        composeRule.onNodeWithText("appKey: ${ExamConfig.defaultCredentials.appKey}").assertIsDisplayed()
+        composeRule.onNodeWithTag("home-credentials-toggle").performScrollTo().performClick()
+        composeRule.onNodeWithText("appId: ${ExamConfig.defaultCredentials.appId}").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("appKey: ${ExamConfig.defaultCredentials.appKey}").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("host-settings-open").performClick()
         composeRule.onNodeWithTag("host-settings-title").assertIsDisplayed()
         composeRule.onNodeWithText("appId").assertIsDisplayed()
@@ -59,11 +61,20 @@ class HostSettingsTest {
     }
 
     @Test
-    fun transferModeCanBeSwitchedAndSurvivesRecreation() {
-        composeRule.onNodeWithTag("transfer-mode-url").performClick().assertIsSelected()
+    fun nativeInterfaceIsSelectedByDefaultWithoutSavedPreference() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        context.getSharedPreferences("host_transfer", Context.MODE_PRIVATE).edit().remove("mode").commit()
         composeRule.activityRule.scenario.recreate()
-        composeRule.onNodeWithTag("transfer-mode-url").assertIsSelected()
-        composeRule.onNodeWithTag("transfer-mode-javascript").performClick().assertIsSelected()
-        composeRule.onNodeWithTag("transfer-mode-native").performClick().assertIsSelected()
+        composeRule.onNodeWithTag("transfer-mode-native").performScrollTo().assertIsSelected()
+        assertEquals(CredentialTransferMode.NATIVE, CredentialTransferStore(context).load())
+    }
+
+    @Test
+    fun transferModeCanBeSwitchedAndSurvivesRecreation() {
+        composeRule.onNodeWithTag("transfer-mode-url").performScrollTo().performClick().assertIsSelected()
+        composeRule.activityRule.scenario.recreate()
+        composeRule.onNodeWithTag("transfer-mode-url").performScrollTo().assertIsSelected()
+        composeRule.onNodeWithTag("transfer-mode-javascript").performScrollTo().performClick().assertIsSelected()
+        composeRule.onNodeWithTag("transfer-mode-native").performScrollTo().performClick().assertIsSelected()
     }
 }

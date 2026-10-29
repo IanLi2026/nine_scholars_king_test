@@ -29,8 +29,8 @@ android {
         minSdk = 24
         // API 36 with the manifest compatibility opt-out honors landscape on Android 16 tablets.
         targetSdk = 36
-        versionCode = 10
-        versionName = "1.9"
+        versionCode = 12
+        versionName = "1.11"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "INTEGRATION_APP_ID",

@@ -71,4 +71,38 @@ class OpenExamApiTest {
         assertEquals(expected, headers.sign)
         assertTrue(runCatching { ExamSigner(credentials).sign("POST", request.path, request.body) }.isFailure)
     }
+    @Test fun quotaMapsResponseToReadableSummaryRows() {
+        val rows = OpenExamResponse(200,
+            """{"errcode":0,"data":{"tenant":{"limit":100,"used":20,"remaining":80},"user":{"limit":5,"used":2,"remaining":3},"levels":[{"level_id":31,"level_name":"New HSK1","limit":30,"used":1,"remaining":29}]}}""")
+            .quotaRows()
+        assertEquals(3, rows.size)
+        assertEquals("80", rows[0].remaining)
+        assertEquals("3", rows[1].remaining)
+        assertEquals("New HSK1", rows[2].title)
+        assertEquals("29", rows[2].remaining)
+    }
+
+    @Test fun catalogUsesServerIdsAndNamesIncludingNewHskLevels() {
+        val levels = OpenExamResponse(200,
+            """{"errcode":0,"data":{"levels":[{"level_id":31,"level_name":"New HSK1"},{"level_id":32,"level_name":"New HSK2"}]}}""")
+            .catalog(OpenExamAction.LEVELS)
+        assertEquals(listOf("31", "32"), levels.map { it.id })
+        assertEquals("New HSK1", levels.first().name)
+        val papers = OpenExamResponse(200,
+            """{"errcode":0,"data":{"papers":[{"paper_id":2032384598771499116,"name":"模拟卷（一）"}]}}""")
+            .catalog(OpenExamAction.PAPERS)
+        assertEquals("2032384598771499116", papers.first().id)
+        assertEquals("模拟卷（一）", papers.first().name)
+    }
+
+    @Test fun catalogDistinguishesEmptyListFromMalformedAndFailedResponses() {
+        assertTrue(OpenExamResponse(200, """{"errcode":0,"data":{"levels":[]}}""")
+            .catalog(OpenExamAction.LEVELS).isEmpty())
+        listOf(
+            OpenExamResponse(200, """{"errcode":0,"data":{}}"""),
+            OpenExamResponse(200, """{"errcode":0,"data":{"levels":[{"level_id":0}]}}"""),
+            OpenExamResponse(200, """{"errcode":6,"errmsg":"无权限"}"""),
+            OpenExamResponse(500, "invalid json")
+        ).forEach { assertTrue(runCatching { it.catalog(OpenExamAction.LEVELS) }.isFailure) }
+    }
 }
