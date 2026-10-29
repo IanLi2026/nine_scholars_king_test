@@ -102,7 +102,14 @@ class ExamActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-        val selectedExam = ExamConfig.exams.firstOrNull {
+        val dynamicExam = intent.getStringExtra(EXTRA_EXAM_TOKEN)?.let { token ->
+            val id = intent.getStringExtra(EXTRA_EXAM_ID).orEmpty()
+            val kind = intent.getStringExtra(EXTRA_PAPER_KIND).orEmpty()
+            if (id.isNotBlank() && token.isNotBlank() && kind in listOf("mock", "official"))
+                ExamEntry(intent.getStringExtra(EXTRA_EXAM_TITLE).orEmpty(), id, token, kind)
+            else null
+        }
+        val selectedExam = dynamicExam ?: ExamConfig.exams.firstOrNull {
             it.examinationId == intent.getStringExtra(EXTRA_EXAM_ID)
         }
         if (selectedExam == null) {
@@ -649,6 +656,9 @@ class ExamActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_EXAM_ID = "exam_id"
+        const val EXTRA_EXAM_TOKEN = "exam_token"
+        const val EXTRA_EXAM_TITLE = "exam_title"
+        const val EXTRA_PAPER_KIND = "paper_kind"
         private const val WEBVIEW_STATE = "exam_webview_state"
         private const val TRANSFER_MODE = "credential_transfer_mode"
         private const val TIME_RETRY_ATTEMPTED = "time_retry_attempted"

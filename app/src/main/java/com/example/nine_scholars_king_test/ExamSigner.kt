@@ -13,7 +13,10 @@ internal data class SignedHeaders(
 )
 
 /** All input strings, including the raw query and JSON body, remain byte-for-byte intact. */
-internal class ExamSigner(private val credentials: HostCredentials) {
+internal class ExamSigner(
+    private val credentials: HostCredentials,
+    private val allowCatalog: Boolean = false
+) {
     private val random = SecureRandom()
 
     fun sign(
@@ -23,7 +26,10 @@ internal class ExamSigner(private val credentials: HostCredentials) {
     ): SignedHeaders {
         require(credentials.appId.isNotBlank() && credentials.appKey.isNotBlank())
         require(method == "GET" || method == "POST")
-        require(requestUrl.startsWith("/mock/open/exams/") &&
+        val path = requestUrl.substringBefore('?')
+        val catalogPath = path == "/mock/open/exams" || path == "/mock/open/levels" ||
+            path.matches(Regex("/mock/open/levels/[0-9]+/papers")) || path == "/mock/open/tenant/quota"
+        require((requestUrl.startsWith("/mock/open/exams/") || (allowCatalog && catalogPath)) &&
             '\n' !in requestUrl && '\r' !in requestUrl)
         require(timestamp.matches(Regex("[0-9]{10}")))
         require(nonce.matches(Regex("[A-Za-z0-9]{16}")))

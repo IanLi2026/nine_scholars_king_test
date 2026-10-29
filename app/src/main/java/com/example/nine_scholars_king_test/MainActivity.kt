@@ -9,20 +9,19 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.ViewModelProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,10 +43,16 @@ class MainActivity : ComponentActivity() {
         val credentialsStore = HostCredentialsStore(this)
         val transferStore = CredentialTransferStore(this)
         transferMode = transferStore.load()
+        val openExamModel = ViewModelProvider(this)[OpenExamViewModel::class.java]
         setContent {
+            LaunchedEffect(openExamModel.pendingExam) {
+                openExamModel.pendingExam?.let { exam ->
+                    openExamModel.pendingExam = null
+                    openExam(exam)
+                }
+            }
             var credentials by remember { mutableStateOf(runCatching { credentialsStore.loadOrDefault() }.getOrNull()) }
             var showSettings by remember { mutableStateOf(false) }
-            var pendingExam by remember { mutableStateOf<ExamEntry?>(null) }
             Nine_scholars_king_testTheme {
                 if (showSettings) {
                     HostSettingsDialog(credentials, onSave = { updated ->
@@ -55,89 +60,51 @@ class MainActivity : ComponentActivity() {
                         if (saved) {
                             credentials = updated
                             showSettings = false
-                            pendingExam?.let { openExam(it) }
-                            pendingExam = null
                         }
                         saved
-                    }, onDismiss = { showSettings = false; pendingExam = null })
+                    }, onDismiss = { showSettings = false })
                 }
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Box(
                         modifier = Modifier.fillMaxSize().padding(innerPadding),
                         contentAlignment = Alignment.TopCenter
                     ) {
-                        LazyColumn(
+                        Column(
                             modifier = Modifier.widthIn(max = 720.dp).fillMaxWidth()
-                                .testTag("exam-list"),
-                            contentPadding = PaddingValues(24.dp),
+                                .testTag("exam-list").verticalScroll(rememberScrollState()).padding(24.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            item {
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text(
-                                        stringResource(R.string.choose_exam),
-                                        style = MaterialTheme.typography.headlineMedium
-                                    )
-                                    HostEnvironmentInfo()
-                                    Text(
-                                        stringResource(R.string.choose_exam_hint),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    TextButton(onClick = { showSettings = true },
-                                        modifier = Modifier.testTag("host-settings-open")) {
-                                        Text(stringResource(if (credentials == null)
-                                            R.string.host_settings_required else R.string.host_settings))
-                                    }
-                                    credentials?.let { current ->
-                                        SelectionContainer {
-                                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                                Text("appId: ${current.appId}",
-                                                    modifier = Modifier.testTag("credential-app-id"))
-                                                Text("appKey: ${current.appKey}",
-                                                    modifier = Modifier.testTag("credential-app-key"))
-                                            }
-                                        }
-                                    }
-                                    CredentialTransferSelector(transferMode, onSelect = { mode ->
-                                        transferMode = mode
-                                        transferStore.save(mode)
-                                    })
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    stringResource(R.string.choose_exam),
+                                    style = MaterialTheme.typography.headlineMedium
+                                )
+                                HostEnvironmentInfo()
+                                Text(
+                                    "填写创建参数，按需查询等级、模拟卷和权益，再创建考试进入答题。",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                TextButton(onClick = { showSettings = true }, enabled = !openExamModel.busy,
+                                    modifier = Modifier.testTag("host-settings-open")) {
+                                    Text(stringResource(if (credentials == null)
+                                        R.string.host_settings_required else R.string.host_settings))
                                 }
-                            }
-                            items(ExamConfig.exams, key = { it.examinationId }) { exam ->
-                                Card(
-                                    onClick = {
-                                        if (credentials == null) {
-                                            pendingExam = exam
-                                            showSettings = true
-                                        } else {
-                                            openExam(exam)
+                                credentials?.let { current ->
+                                    SelectionContainer {
+                                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Text("appId: ${current.appId}",
+                                                modifier = Modifier.testTag("credential-app-id"))
+                                            Text("appKey: ${current.appKey}",
+                                                modifier = Modifier.testTag("credential-app-key"))
                                         }
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                        .testTag("exam-entry-${exam.title}")
-                                ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth().padding(20.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                            Text(exam.title, style = MaterialTheme.typography.titleLarge)
-                                            Text(
-                                                stringResource(R.string.mock_exam),
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                        Text(
-                                            stringResource(R.string.enter_exam),
-                                            color = MaterialTheme.colorScheme.primary,
-                                            style = MaterialTheme.typography.labelLarge
-                                        )
                                     }
                                 }
+                                CredentialTransferSelector(transferMode, onSelect = { mode ->
+                                    transferMode = mode
+                                    transferStore.save(mode)
+                                })
                             }
+                            OpenExamPanel(openExamModel, credentials, onOpen = ::openExam)
                         }
                     }
                 }
@@ -147,7 +114,10 @@ class MainActivity : ComponentActivity() {
 
     private fun openExam(exam: ExamEntry) {
         startActivity(Intent(this, ExamActivity::class.java)
-            .putExtra(ExamActivity.EXTRA_EXAM_ID, exam.examinationId))
+            .putExtra(ExamActivity.EXTRA_EXAM_ID, exam.examinationId)
+            .putExtra(ExamActivity.EXTRA_EXAM_TOKEN, exam.token)
+            .putExtra(ExamActivity.EXTRA_EXAM_TITLE, exam.title)
+            .putExtra(ExamActivity.EXTRA_PAPER_KIND, exam.paperKind))
     }
 
     override fun onResume() {

@@ -1,11 +1,22 @@
 # 安卓考试测试壳
 
-启动 App 后横屏显示 HSK1～HSK6 考试列表，点击对应条目进入横屏考试。
-六个场次的 ID 和标题集中配置在 `app/src/main/java/com/example/nine_scholars_king_test/ExamConfig.kt`，
-租户凭据与六个场次 token 从不入库的 `integration.local.properties` 生成到 BuildConfig，
-打开地址为 `https://staging-public.hskmock.com/hskmock_webview/index.html#/exam`，携带所选场次的完整参数。
-更换场次时同步更新场次 ID 和本机配置中的 token，场次 ID 和凭证始终保留为字符串，保留 `index.html#/exam`。
-页面接口指向 `https://staging-api.hskmock.com`，由部署的考试页配置。
+启动 App 后横屏显示考试接入首页。填写 `external_user_id`、`paper_kind`、`level_id`、`paper_id` 和 `request_id`，点击“创建考试并进入”调用 `POST /mock/open/exams`。仅在 HTTP 成功、`errcode=0` 且返回完整的 `data.examination_id` / `data.exam_token` 时进入现有考试 WebView。
+
+首页按钮按提供的 `open_exam_test(1).html` 调用：
+
+| 按钮 | 操作 |
+| --- | --- |
+| 换新 request_id | 本地生成新的 UUID 请求号，不请求接口 |
+| 等级列表 | `GET /mock/open/levels?paper_kind=...` |
+| 该等级模拟卷 | `GET /mock/open/levels/{level_id}/papers?external_user_id=...` |
+| 权益 | `GET /mock/open/tenant/quota?external_user_id=...` |
+| 创建考试并进入 | `POST /mock/open/exams`，正式考省略 `paper_id` |
+
+查询结果在首页显示，可选中复制；查看返回的等级和试卷 ID 后填入对应字段。配置与 request_id 自动保存在本机，网络失败后重试保留同一个 request_id；主动换新后再次创建会重新扣次。按钮在请求期间禁用，查询接口不自动创建考试。返回首页后可点击“重新进入已创建场次”继续当前进程中已创建的考试，无需再次建场。
+
+创建结果的场次 ID 和 token 保留为字符串，查询参数逐项编码，打开地址为 `https://staging-public.hskmock.com/hskmock_webview/index.html#/exam?examination_id=...&exam_token=...&title=...&paper_kind=...`。三种凭据传入方式、签名桥、保存退出继续沿用。
+
+默认接口地址为 `https://staging-api.hskmock.com`。首页可修改创建/查询接口的 HTTPS 域名；现有考试 H5 的 API 地址仍由部署的网页配置，须与所选接口环境一致。不会通过未经约定的 URL 参数修改 H5 环境。
 
 默认原生接口注入的完整开发文档见 [App 与 WebView 考试页开发对接文档](docs/native-bridge-development.md)，包含桥接口、H5 请求示例、签名规则、事件、保存退出和联调验收清单。
 
@@ -13,8 +24,8 @@ App 开发人员可先阅读 [App 端职责、WebView 传入值及来源说明](
 
 ## 项目结构
 
-- `app/src/main`：考试列表、WebView 页面、场次配置及界面资源。
-- `app/src/test`：场次参数、签名原文和时间戳检查。
+- `app/src/main`：首页配置、对外考试接口、WebView 页面及界面资源。
+- `app/src/test`：创建/查询参数、响应解析、URL 编码、签名原文和时间戳检查。
 - `app/src/androidTest`：启动、列表导航、网页恢复、音频与存储测试。
 - `gradle` 与根目录 Gradle 文件：构建工具和依赖配置。
 - `scripts`：故障设备日志采集工具。
@@ -24,13 +35,13 @@ App 开发人员可先阅读 [App 端职责、WebView 传入值及来源说明](
 
 ## 运行
 
-首次克隆后，将 `integration.example.properties` 复制为 `integration.local.properties`，填写同一租户的 `integration.appId`、`integration.appKey` 和六个 `integration.HSK1.examToken`～`integration.HSK6.examToken`。本机配置已加入 `.gitignore`，不要提交实际密钥或 token。原生“接入配置”只修改 appId/appKey；更换场次 token 后需要重新构建。
+首次克隆后，将 `integration.example.properties` 复制为 `integration.local.properties`，填写同一租户的 `integration.appId`、`integration.appKey`。本机配置已加入 `.gitignore`，不要提交实际密钥或 token。原生“接入配置”修改 appId/appKey；新首页通过创建接口获取场次，不需要预先填写固定场次 token。示例文件中的六个 token 仅用于旧场次兼容及测试。
 
-未配置本机文件时使用无效占位值，仅供编译和代码检查；实际联调必须配置有效凭据和场次。
+未配置本机文件时使用无效占位值，仅供编译和代码检查；实际联调必须配置有效凭据。
 
 1. 在 Android Studio 选择 `debug` 构建并运行，或执行 `./gradlew.bat assembleDebug` 后安装 `app/build/outputs/apk/debug/app-debug.apk`。
 2. 启动 App，首页完整显示本次提供的测试 `appId`、`appKey`。在“接入配置”内可查看和修改；已保存的自定义凭据优先，点击“使用本次测试凭据”可恢复预置值，再点击保存。
-3. 设备开启自动校时并连接互联网，点击 HSK1～HSK6 进入考试。无需启动电脑服务、连接同一局域网或授予本地网络权限。
+3. 设备开启自动校时并连接互联网，填写首页参数，按需查询等级、模拟卷和权益，点击“创建考试并进入”。无需启动电脑服务、连接同一局域网或授予本地网络权限。
 4. 在首页选择“URL 参数”“JS 注入”“原生接口注入”。考试页顶部联调栏默认隐藏，点击右上角“工具”可展开查看 URL、时间诊断和传入方式，点击“隐藏工具”收起。展开/收起不会重载 WebView。所选传入方式会保存在本机；切换传入方式时先保存进度，成功后重建 WebView，重新打开同场考试；保存失败可重试、取消或选择仍然切换。
 
 MainActivity 和 ExamActivity 都声明并请求 `screenOrientation="landscape"`。为适配荣耀 Pad MagicOS 10 / Android 16，1.8 保留 compileSdk 37，将 targetSdk 调为 36，并在 application 配置 `android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY=true`，使用 Android 官方提供的大屏方向兼容退出机制。旧版 targetSdk 37 会让 Android 16 大屏忽略方向限制；仅打开系统自动旋转不能让应用锁定横屏。相关行为见 [Android 16 方向兼容配置](https://developer.android.com/about/versions/16/behavior-changes-16)。分屏、桌面窗口及厂商强制窗口策略下，页面仍按实际可用宽度自适应。
@@ -40,7 +51,7 @@ MainActivity 和 ExamActivity 都声明并请求 `screenOrientation="landscape"`
 1.7 在考试 Activity 恢复到前台时设置 `FLAG_KEEP_SCREEN_ON`，防止答题和听力期间因无操作自动熄屏；离开考试页或切到后台时清除此标记，回到列表后按系统休眠策略执行。此能力不需要 WAKE_LOCK 权限。
 
 debug 和 release 均使用 HTTPS，不允许明文请求；仅 debug 启用 WebView 调试。
-按本次联调需求，App 支持凭据明文显示和传入网页。`ExamConfig.defaultCredentials` 的构建默认值来自本机 `integration.local.properties`，公开源码仅保留占位值。App 内修改后的凭据仍使用 Android Keystore 的 AES-GCM 密钥加密后存入应用私有存储，应用已禁用备份。清除数据或卸载会移除自定义配置，重新安装后使用本机文件构建时的默认值。现有六个场次是测试链接，正式宿主需要先通过自己的建场接口取得新场次参数。
+按本次联调需求，App 支持凭据明文显示和传入网页。`ExamConfig.defaultCredentials` 的构建默认值来自本机 `integration.local.properties`，公开源码仅保留占位值。App 内修改后的凭据仍使用 Android Keystore 的 AES-GCM 密钥加密后存入应用私有存储，应用已禁用备份。清除数据或卸载会移除自定义配置，重新安装后使用本机文件构建时的默认值。首页已经通过对外建场接口取得新场次参数；固定场次仅保留供旧入口兼容和测试。
 
 ## 三种凭据传入方式
 
@@ -84,7 +95,7 @@ WebView 在 `loadUrl` 前通过 `addJavascriptInterface` 注册 `window.JxwBridg
 ## 已实现
 
 - JavaScript、DOM Storage、Cookie、免手势播放音频、宽视口和自适应页面布局。
-- 首页提供 HSK1～HSK6 六个可点击的考试条目。
+- 首页提供连接配置、创建参数、等级/模拟卷/权益查询及创建后进入考试。
 - 考试内系统返回保存后关闭 WebView 并回到列表，不回退网页历史，不调用交卷接口；列表内返回退出 App。
 - 不清除 WebView 存储，同场次重新打开时由考试页面恢复已保存的答案。
 - 横竖屏切换和窗口尺寸变化保持当前 WebView；Activity 重建时恢复网页历史。
@@ -95,7 +106,7 @@ WebView 在 `loadUrl` 前通过 `addJavascriptInterface` 注册 `window.JxwBridg
 
 ## 联调验收
 
-1. 确认首页凭据与本次联调提供的值一致，分别选择三种传入方式；依次点击 HSK1～HSK6，确认打开对应级别标题和题目，而非“缺少考试参数”“当前环境无法完成签名”或“验签失败，无效参数 timestamp”；返回后仍显示考试列表。
+1. 确认首页凭据与本次联调提供的值一致，分别选择三种传入方式；填写相应级别、试卷和用户参数后创建考试，确认打开对应级别标题和题目，而非“缺少考试参数”“当前环境无法完成签名”或“验签失败，无效参数 timestamp”；返回后仍显示考试列表。
 2. 听力可以自动播放；若网页提示点按播放，点按后可以出声。
 3. 作答一道题，按系统返回关闭，再打开相同场次，确认答案保留。
 4. 确认返回关闭后仍能进入同场考试，考试没有变成已交卷。
@@ -110,7 +121,7 @@ WebView 在 `loadUrl` 前通过 `addJavascriptInterface` 注册 `window.JxwBridg
 
 ## 远程设备闪退排查
 
-点击图标后的首页不访问考试服务。只有点选级别才创建 WebView 并连接服务。
+点击图标后的首页不自动访问考试服务。只有点击查询或创建按钮才请求接口，创建成功后打开 WebView。
 目前未取得故障设备日志，不能将首页启动退出归因于网络或网页组件。
 
 在能连接故障设备的电脑上安装 Android platform-tools，复现退出后执行：

@@ -1,5 +1,6 @@
 package com.example.nine_scholars_king_test
 
+import android.content.Intent
 import android.os.Build
 import android.content.pm.ActivityInfo
 import android.view.View
@@ -8,11 +9,14 @@ import android.webkit.WebView
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.assertTextContains
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
@@ -37,9 +41,10 @@ class ExamListTest {
         composeRule.onNodeWithText("选择考试").assertIsDisplayed()
         composeRule.activityRule.scenario.recreate()
         composeRule.onNodeWithText("选择考试").assertIsDisplayed()
-        composeRule.onNodeWithTag("exam-list")
-            .performScrollToNode(hasTestTag("exam-entry-HSK6"))
-        composeRule.onNodeWithTag("exam-entry-HSK6").assertIsDisplayed()
+        composeRule.onNodeWithTag("open-create").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("open-request").performScrollTo().performTextReplacement("request-persist-fixture")
+        composeRule.activityRule.scenario.recreate()
+        composeRule.onNodeWithTag("open-request").performScrollTo().assertTextContains("request-persist-fixture")
     }
 
     @Test
@@ -48,7 +53,10 @@ class ExamListTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val monitor = instrumentation.addMonitor(ExamActivity::class.java.name, null, false)
         try {
-            composeRule.onNodeWithTag("exam-entry-HSK1").performClick()
+            instrumentation.runOnMainSync {
+                composeRule.activity.startActivity(Intent(composeRule.activity, ExamActivity::class.java)
+                    .putExtra(ExamActivity.EXTRA_EXAM_ID, ExamConfig.exams.first().examinationId))
+            }
             val activity = requireNotNull(
                 instrumentation.waitForMonitorWithTimeout(monitor, 5000) as? ExamActivity
             )
@@ -79,32 +87,37 @@ class ExamListTest {
     }
 
     @Test
-    fun eachListEntryOpensItsOwnExamAndBackReturnsToList() {
+    fun returnedDynamicSessionOpensWebViewAndClosingReturnsToForm() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
-        for (exam in ExamConfig.exams) {
-            val monitor = instrumentation.addMonitor(ExamActivity::class.java.name, null, false)
-            try {
-                val tag = "exam-entry-${exam.title}"
-                composeRule.onNodeWithTag("exam-list").performScrollToNode(hasTestTag(tag))
-                composeRule.onNodeWithTag(tag).performClick()
-                val activity = instrumentation.waitForMonitorWithTimeout(monitor, 5000) as? ExamActivity
-                assertNotNull("${exam.title} did not open", activity)
-                requireNotNull(activity)
-                assertEquals(exam.examinationId, activity.intent.getStringExtra(ExamActivity.EXTRA_EXAM_ID))
-                composeRule.waitUntil(timeoutMillis = 5000) {
-                    var matches = false
-                    instrumentation.runOnMainSync {
-                        matches = findWebView(activity.window.decorView)?.url == exam.url
-                    }
-                    matches
-                }
-                instrumentation.runOnMainSync { activity.onBackPressedDispatcher.onBackPressed() }
-                composeRule.onNodeWithTag("exam-list").performScrollToNode(hasTestTag("exam-entry-HSK1"))
-                composeRule.onNodeWithTag("exam-entry-HSK1").assertIsDisplayed()
-            } finally {
-                instrumentation.removeMonitor(monitor)
+        val exam = ExamEntry("HSK 测试", "2032384598771499999", "fixture-token-a+b", "official")
+        val monitor = instrumentation.addMonitor(ExamActivity::class.java.name, null, false)
+        try {
+            instrumentation.runOnMainSync {
+                composeRule.activity.startActivity(Intent(composeRule.activity, ExamActivity::class.java)
+                    .putExtra(ExamActivity.EXTRA_EXAM_ID, exam.examinationId)
+                    .putExtra(ExamActivity.EXTRA_EXAM_TOKEN, exam.token)
+                    .putExtra(ExamActivity.EXTRA_EXAM_TITLE, exam.title)
+                    .putExtra(ExamActivity.EXTRA_PAPER_KIND, exam.paperKind))
             }
-        }
+            val activity = requireNotNull(instrumentation.waitForMonitorWithTimeout(monitor, 5000) as? ExamActivity)
+            composeRule.waitUntil(timeoutMillis = 5000) {
+                var matches = false
+                instrumentation.runOnMainSync { matches = findWebView(activity.window.decorView)?.url == exam.url }
+                matches
+            }
+            instrumentation.runOnMainSync { activity.finish() }
+            composeRule.waitUntil(timeoutMillis = 5000) {
+                composeRule.onAllNodesWithTag("open-create").fetchSemanticsNodes().isNotEmpty()
+            }
+            composeRule.onNodeWithTag("open-create").performScrollTo().assertIsDisplayed()
+        } finally { instrumentation.removeMonitor(monitor) }
+    }
+
+    @Test
+    fun invalidLevelShowsErrorWithoutCreatingExam() {
+        composeRule.onNodeWithTag("open-level").performScrollTo().performTextReplacement("0")
+        composeRule.onNodeWithTag("open-create").performScrollTo().performClick()
+        composeRule.onNodeWithTag("open-result").performScrollTo().assertTextContains("level_id 须为正整数", substring = true)
     }
 
     private fun findWebView(view: View): WebView? {

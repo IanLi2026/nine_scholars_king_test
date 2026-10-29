@@ -4,11 +4,15 @@ package com.example.nine_scholars_king_test
 internal data class ExamEntry(
     val title: String,
     val examinationId: String,
-    val token: String
+    val token: String,
+    val paperKind: String = "mock"
 ) {
     val url: String
         get() = "${ExamConfig.PAGE_URL}#/exam" +
-            "?examination_id=$examinationId&exam_token=$token&title=$title&paper_kind=mock"
+            "?examination_id=${encode(examinationId)}&exam_token=${encode(token)}" +
+            "&title=${encode(title)}&paper_kind=${encode(paperKind)}"
+
+    private fun encode(value: String) = java.net.URLEncoder.encode(value, "UTF-8").replace("+", "%20")
 }
 
 internal object ExamConfig {

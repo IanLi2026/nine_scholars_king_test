@@ -1,8 +1,8 @@
 # App 端职责、WebView 传入值及来源说明
 
-- 版本：1.0
+- 版本：1.1
 - 日期：2026-10-29
-- 对应实现：安卓考试测试壳 1.8
+- 对应实现：安卓考试测试壳 1.9
 - 适用方式：默认原生接口注入，`native`
 
 本文面向 App 开发人员，说明 App 要做哪些工作、什么时候把什么值交给 WebView，以及这些值从哪里来。完整的 H5 接口定义与请求示例见 [开发对接文档](native-bridge-development.md)。
@@ -33,12 +33,12 @@
 | 字段 | 类型 | 当前测试壳的值从哪里来 | 正式宿主的值从哪里来 |
 | --- | --- | --- | --- |
 | 考试页基础地址 | string | ExamConfig.PAGE_URL 中配置的测试站地址 | 部署与环境配置 |
-| examination_id | string | 用户提供的六个考试链接，已配置到 ExamConfig.exams | 创建考试响应，或未交卷考试的续考信息 |
-| exam_token | string | 本机 integration.local.properties 中与选中场次配套的 token，经 BuildConfig 供给 | 与 examination_id 同一条创建响应或续考信息 |
-| title | string | 所选列表条目的 title，例如 HSK1 | 业务侧确定的展示标题，可参考已选试卷名称 |
-| paper_kind | string | 当前固定为 mock | 业务侧选择的类型；本文模拟考创建接口固定为 mock |
+| examination_id | string | 首页 POST /mock/open/exams 返回的 data.examination_id | 创建考试响应，或未交卷考试的续考信息 |
+| exam_token | string | 同一次创建响应的 data.exam_token | 与 examination_id 同一条创建响应或续考信息 |
+| title | string | 根据首页 level_id 生成的展示标题，例如 HSK1 | 业务侧确定的展示标题，可参考已选试卷名称 |
+| paper_kind | string | 首页选择 mock 或 official | 业务侧选择的 mock 或 official |
 
-当前代码中，用户点击首页条目后，MainActivity 用 Intent Extra `exam_id` 传递选中的场次 ID；ExamActivity 再从 ExamConfig.exams 找到该场次的完整配置。这个内部 Extra 的值与 URL 中的 examination_id 相同。
+当前代码中，首页先创建考试，MainActivity 用 Intent Extra `exam_id`、`exam_token`、`exam_title` 和 `paper_kind` 传递创建结果；ExamActivity 使用这组动态参数构造场次。仅旧的 ID-only 内部入口保留 ExamConfig.exams 兼容。
 
 默认原生模式打开的 URL：
 
@@ -46,7 +46,7 @@
 https://staging-public.hskmock.com/hskmock_webview/index.html#/exam?examination_id=<场次ID>&exam_token=<场次凭证>&title=HSK1&paper_kind=mock
 ```
 
-App 构造地址时保留 `index.html#/exam`，场次 ID 全程保持字符串。标题及其他可能含特殊字符的 query 值需要单独 URL 编码。当前测试条目的标题、ID 和 token 均已按提供的链接配置。
+App 构造地址时保留 `index.html#/exam`，场次 ID 全程保持字符串。标题及其他可能含特殊字符的 query 值需要单独 URL 编码。ExamEntry 会逐项编码 URL 参数，并保留实际 paper_kind。
 
 默认原生模式的 URL 不追加 appId/appKey，它们通过后面的原生接口提供。
 
@@ -140,20 +140,20 @@ appid/appKey 由租户对接方发放，同一租户共用，不按考生单独�
 
 ### 4.1 当前测试壳
 
-本次提供的六个 URL 已经包含建好的场次。当前 App 使用 ExamConfig.exams 中的 examinationId，以及 integration.local.properties 经 BuildConfig 提供的配套 token，不在本机重新创建考试，也不重新生成 token。
+首页配置 external_user_id、paper_kind、level_id、paper_id、request_id 后，点击“创建考试并进入”调用 POST /mock/open/exams。HTTP 成功、errcode=0 且响应字段完整后读取 examination_id / exam_token 并打开 WebView。正式考不传 paper_id。查询结果展示在首页；返回后可重新进入当前进程中已创建的场次。
 
 同一场的 ID 与 token 应成对使用，并与配置的租户凭据匹配。examination_id 是场次 ID，不能用 paper_id、level_id 或 HSK 等级号代替。
 
 ### 4.2 正式宿主：先查续考，再按需创建
 
-以下是正式接入的数据来源说明，不表示当前测试壳已经实现动态建场。
+以下说明业务侧的数据来源与续考建议。当前测试壳已实现首页手动配置、查询及动态建场；查询不会自动跳转，进入考试始终由创建按钮触发。
 
 | 业务输入 | 来源 |
 | --- | --- |
 | external_user_id | 宿主业务系统中的外部用户标识 |
 | level_id | 开放等级列表中的 level_id，不直接使用 HSK 等级号 |
 | paper_id | 所选等级下的模拟试卷列表 |
-| paper_kind | 模拟考创建接口固定为 mock |
+| paper_kind | 首页选择 mock 或 official；official 不传 paper_id |
 | request_id | 宿主业务侧为一次创建考试操作生成并保存的租户内幂等键 |
 
 正式宿主业务侧，例如 App 配套服务端，可以按以下流程取得场次：
@@ -192,7 +192,7 @@ appid/appKey 由租户对接方发放，同一租户共用，不按考生单独�
 }
 ```
 
-当前注入给考试 H5 的桥只签当前场次 `/mock/open/exams/<ID>/...` 下的请求，不提供创建场次、查询等级或权益的通用签名入口。正式宿主的建场能力需要独立实现或由配套服务端提供。
+当前注入给考试 H5 的桥只签当前场次 `/mock/open/exams/<ID>/...` 下的请求，不提供创建场次、查询等级或权益的通用签名入口。当前首页通过独立的 OpenExamApi 实现创建/等级/模拟卷/权益请求，不向 H5 开放这些签名路径。
 
 ## 5. sign 使用的请求信息从哪里来
 
@@ -260,7 +260,7 @@ timestamp 是 10 位秒级字符串，不是当前时区显示的小时数，也
 
 ```kotlin
 val credentials = HostCredentialsStore(this).loadOrDefault()
-val exam = ExamConfig.exams.first { it.examinationId == selectedExamId }
+val exam = response.createdExam(form) // 同一次创建响应得到的 ID、token 和考试类型
 
 val bridge = ExamHostBridge(
     examId = exam.examinationId,
@@ -307,7 +307,7 @@ status 由服务器决定，App 不自行把考试改成 scored，也不把按�
 ## 9. App 端交付核对表
 
 - [ ] 凭据来源已确定，appId/appKey 与当前环境、租户一致。
-- [ ] 场次 ID 和 token 来自同一场；当前测试壳与正式动态建场方案的区别已明确。
+- [ ] 场次 ID 和 token 来自同一次创建响应；失败响应不会打开 WebView。
 - [ ] examination_id 保持字符串，不用试卷 ID 或等级号替换。
 - [ ] URL 只放当前原生方式需要的场次参数，保留 index.html#/exam。
 - [ ] WebView 创建后先注册 JxwBridge，再加载网页。
@@ -332,4 +332,4 @@ status 由服务器决定，App 不自行把考试改成 scored，也不把按�
 | [SigningClock.kt](../app/src/main/java/com/example/nine_scholars_king_test/SigningClock.kt) | timestamp 使用设备时间还是校准时间 |
 | [ServerTimeSync.kt](../app/src/main/java/com/example/nine_scholars_king_test/ServerTimeSync.kt) | HTTPS Date 校时样本的取得 |
 
-本文只描述默认原生方式的 App 端职责，不修改运行代码，也不增加当前测试壳尚未实现的建场功能。H5 调用、完整事件字段和联调示例参见 [开发对接文档](native-bridge-development.md)，接口原始规则核对见 [接口文档核对](api-contract-review.md)。
+本文描述默认原生方式的 App 端职责；首页请求与参数实现见 OpenExamApi.kt 和 OpenExamPanel.kt。H5 调用、完整事件字段和联调示例参见 [开发对接文档](native-bridge-development.md)，接口原始规则核对见 [接口文档核对](api-contract-review.md)。

@@ -2,7 +2,7 @@
 
 - 版本：1.0
 - 更新日期：2026-10-29
-- 对应 App：安卓考试测试壳 1.8
+- 对应 App：安卓考试测试壳 1.9
 - 适用方式：默认「原生接口注入」，模式值为 `native`
 
 App 端职责及逐项参数来源另见 [App 端职责、WebView 传入值及来源说明](app-side-webview-integration.md)。
@@ -17,7 +17,7 @@ App 在加载考试页之前注册原生 JavaScript 接口 `window.JxwBridge`。
 | WebView 中的 H5 | 解析考试参数、加载试卷和题目、播放听力、作答、保存和恢复进度、发起交卷、通知宿主 |
 | 考试 API | 验签、校验场次和凭证、提供考试数据、保存答案、处理交卷和评分 |
 
-当前测试壳直接使用预配置的 HSK1～HSK6 场次，不在 App 内动态建场，也不展示成绩。正式宿主应先创建或取得有效场次，再按本文打开考试页。
+当前测试壳首页支持配置用户、考试类型、等级、试卷和 request_id，独立调用对外创建考试接口后打开 WebView。等级、模拟卷和权益查询也由原生首页发起；考试 H5 的桥接口范围保持为当前场次。首页操作详见项目 README。
 
 ## 2. 整体调用流程
 
@@ -26,7 +26,9 @@ sequenceDiagram
     participant App as Android App
     participant H5 as WebView 考试页
     participant API as 考试 API
-    App->>App: 读取凭据和所选场次
+    App->>App: 读取凭据和首页创建参数
+    App->>API: POST /mock/open/exams（原生签名）
+    API-->>App: examination_id、exam_token
     App->>H5: 注册 window.JxwBridge
     App->>H5: 加载带场次参数的 URL
     H5->>App: sign(请求方法、路径、原始正文)
@@ -485,7 +487,7 @@ App 的首页和考试页均声明并请求横屏。1.8 使用 targetSdk 36 和�
 | [CredentialTransfer.kt](../app/src/main/java/com/example/nine_scholars_king_test/CredentialTransfer.kt) | 默认模式、模式持久化、传入渠道 |
 | [SigningClock.kt](../app/src/main/java/com/example/nine_scholars_king_test/SigningClock.kt) | 校准时钟、单调计时及有效期 |
 | [ServerTimeSync.kt](../app/src/main/java/com/example/nine_scholars_king_test/ServerTimeSync.kt) | HTTPS Date 获取 |
-| [ExamConfig.kt](../app/src/main/java/com/example/nine_scholars_king_test/ExamConfig.kt) | 环境地址、六个测试场次及 BuildConfig 中本机凭据的引用 |
+| [ExamConfig.kt](../app/src/main/java/com/example/nine_scholars_king_test/ExamConfig.kt) | 环境地址、动态场次 URL、旧场次兼容及默认凭据的引用 |
 
 本机 PowerShell 构建与静态检查：
 
