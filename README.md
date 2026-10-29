@@ -33,7 +33,9 @@ App 开发人员可先阅读 [App 端职责、WebView 传入值及来源说明](
 3. 设备开启自动校时并连接互联网，点击 HSK1～HSK6 进入考试。无需启动电脑服务、连接同一局域网或授予本地网络权限。
 4. 在首页选择“URL 参数”“JS 注入”“原生接口注入”。考试页顶部联调栏默认隐藏，点击右上角“工具”可展开查看 URL、时间诊断和传入方式，点击“隐藏工具”收起。展开/收起不会重载 WebView。所选传入方式会保存在本机；切换传入方式时先保存进度，成功后重建 WebView，重新打开同场考试；保存失败可重试、取消或选择仍然切换。
 
-MainActivity 和 ExamActivity 都声明 `screenOrientation="landscape"`。Android 16/17 在部分大屏设备上可能由系统忽略方向限制，尤其 targetSdk 37 已无开发者退出选项；相关行为见 [Android 17 大屏方向规则](https://developer.android.com/about/versions/17/changes/ff-restrictions-ignored)。页面仍保留按可用窗口宽度自适应的布局。
+MainActivity 和 ExamActivity 都声明并请求 `screenOrientation="landscape"`。为适配荣耀 Pad MagicOS 10 / Android 16，1.8 保留 compileSdk 37，将 targetSdk 调为 36，并在 application 配置 `android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY=true`，使用 Android 官方提供的大屏方向兼容退出机制。旧版 targetSdk 37 会让 Android 16 大屏忽略方向限制；仅打开系统自动旋转不能让应用锁定横屏。相关行为见 [Android 16 方向兼容配置](https://developer.android.com/about/versions/16/behavior-changes-16)。分屏、桌面窗口及厂商强制窗口策略下，页面仍按实际可用宽度自适应。
+
+1.8 同时隐藏 H5 自身的 HSK 标题栏，回收标题栏预留的顶部空间。支持文档开始注入的 WebView 在首段页面脚本前添加样式，旧组件在加载回调中兼容注入；样式对后续 SPA 渲染仍生效。右上角原生“工具”入口保留。首页和时间诊断显示实际 App 版本、Android 版本及窗口方向，便于远程确认安装的是新包。
 
 1.7 在考试 Activity 恢复到前台时设置 `FLAG_KEEP_SCREEN_ON`，防止答题和听力期间因无操作自动熄屏；离开考试页或切到后台时清除此标记，回到列表后按系统休眠策略执行。此能力不需要 WAKE_LOCK 权限。
 

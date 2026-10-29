@@ -1,6 +1,7 @@
 package com.example.nine_scholars_king_test
 
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -38,6 +39,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         enableEdgeToEdge()
         val credentialsStore = HostCredentialsStore(this)
         val transferStore = CredentialTransferStore(this)
@@ -76,6 +78,7 @@ class MainActivity : ComponentActivity() {
                                         stringResource(R.string.choose_exam),
                                         style = MaterialTheme.typography.headlineMedium
                                     )
+                                    HostEnvironmentInfo()
                                     Text(
                                         stringResource(R.string.choose_exam_hint),
                                         color = MaterialTheme.colorScheme.onSurfaceVariant

@@ -11,6 +11,9 @@
         android:supportsRtl="true"
         android:usesCleartextTraffic="false"
         android:theme="@style/Theme.Nine_scholars_king_test">
+        <property
+            android:name="android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY"
+            android:value="true" />
         <activity
             android:name=".ExamActivity"
             android:screenOrientation="landscape"

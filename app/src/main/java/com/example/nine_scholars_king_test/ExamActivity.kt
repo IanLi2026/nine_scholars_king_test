@@ -6,6 +6,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
 import android.content.pm.ApplicationInfo
+import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
@@ -100,6 +101,7 @@ class ExamActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         val selectedExam = ExamConfig.exams.firstOrNull {
             it.examinationId == intent.getStringExtra(EXTRA_EXAM_ID)
         }
@@ -276,14 +278,14 @@ class ExamActivity : ComponentActivity() {
         CookieManager.getInstance().setAcceptCookie(true)
         val configScript = if (transferMode == CredentialTransferMode.JAVASCRIPT)
             CredentialTransfer.script(credentials) else null
-        compatibleJsInjection = false
-        if (configScript != null) {
-            if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
-                WebViewCompat.addDocumentStartJavaScript(this, configScript,
-                    setOf("https://staging-public.hskmock.com"))
-            } else {
-                compatibleJsInjection = true
-            }
+        val documentStartScript = listOfNotNull(ExamPageAppearance.hideTitleScript, configScript)
+            .joinToString("\n")
+        val useCompatibleInjection =
+            !WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)
+        compatibleJsInjection = configScript != null && useCompatibleInjection
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            WebViewCompat.addDocumentStartJavaScript(this, documentStartScript,
+                setOf("https://staging-public.hskmock.com"))
         }
         val hostView = this
         addJavascriptInterface(ExamHostBridge(exam.examinationId, credentials,
@@ -319,16 +321,16 @@ class ExamActivity : ComponentActivity() {
                 loadedUrl = url
                 loading = true
                 loadProgress = 0
-                if (compatibleJsInjection && configScript != null) {
-                    view.evaluateJavascript(configScript, null)
+                if (useCompatibleInjection) {
+                    view.evaluateJavascript(documentStartScript, null)
                 }
             }
 
             override fun onPageFinished(view: WebView, url: String?) {
                 loading = false
-                if (compatibleJsInjection && configScript != null &&
+                if (useCompatibleInjection &&
                     url?.let { isExamPage(it.toUri()) } == true) {
-                    view.evaluateJavascript(configScript, null)
+                    view.evaluateJavascript(documentStartScript, null)
                 }
             }
 

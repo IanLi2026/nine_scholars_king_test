@@ -289,6 +289,53 @@ class ExamWebViewTest {
     }
 
     @Test
+    fun examTitleIsHiddenAndItsReservedSpaceIsReclaimedForLateRenderedContent() {
+        launchExam().use { scenario ->
+            val view = findWebView()
+            loadFixture(scenario, view, """
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                  .exam-title-bar { display: flex; height: 56px; }
+                  .sidebar-wrapper, .header-wrapper { position: fixed; top: 80px; }
+                  .content-wrapper { padding-top: 192px; }
+                </style>
+                <header id="other-title">Other section</header>
+                <div class="exam-page">
+                  <div class="exam-title-bar">HSK2</div>
+                  <aside class="sidebar-wrapper"></aside>
+                  <div class="header-wrapper"></div>
+                  <main class="content-wrapper"><input id="answer" value="A"></main>
+                </div>
+            """.trimIndent(), baseUrl = ExamConfig.exams.first().url, keepHostClient = true)
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+            while (evaluateText(scenario, view,
+                "getComputedStyle(document.querySelector('.exam-title-bar')).display") != "none" &&
+                System.nanoTime() < deadline) Thread.sleep(100)
+            assertEquals("none", evaluateText(scenario, view,
+                "getComputedStyle(document.querySelector('.exam-title-bar')).display"))
+            assertEquals("24px", evaluateText(scenario, view,
+                "getComputedStyle(document.querySelector('.sidebar-wrapper')).top"))
+            assertEquals("24px", evaluateText(scenario, view,
+                "getComputedStyle(document.querySelector('.header-wrapper')).top"))
+            assertEquals("true", evaluate(scenario, view, """
+                getComputedStyle(document.querySelector('.content-wrapper')).paddingTop ===
+                  (innerWidth >= 768 ? '136px' : '16px')
+            """.trimIndent()))
+            evaluate(scenario, view, """
+                document.querySelector('.exam-title-bar').remove();
+                var lateTitle = document.createElement('div');
+                lateTitle.className = 'exam-title-bar';
+                document.querySelector('.exam-page').appendChild(lateTitle);
+            """.trimIndent())
+            assertEquals("none", evaluateText(scenario, view,
+                "getComputedStyle(document.querySelector('.exam-title-bar')).display"))
+            assertEquals("A", evaluateText(scenario, view, "document.getElementById('answer').value"))
+            assertEquals("false", evaluate(scenario, view,
+                "getComputedStyle(document.getElementById('other-title')).display === 'none'"))
+        }
+    }
+
+    @Test
     fun backWaitsForAsynchronousSaveBeforeDestroyingWebView() {
         val key = "shell-async-save-${System.nanoTime()}"
         launchExam().use { scenario ->

@@ -48,6 +48,7 @@ internal fun ExamDiagnosticsPanel(
         val format = SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z", Locale.getDefault())
         Column(Modifier.fillMaxWidth().heightIn(max = 180.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            HostEnvironmentInfo()
             Text("设备时间：${format.format(Date(timeReading.deviceMillis))}",
                 style = MaterialTheme.typography.bodySmall)
             Text("签名时间来源：${if (timeReading.usesServerTime) "HTTPS 服务器时间" else "设备时间"}",

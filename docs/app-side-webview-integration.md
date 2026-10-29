@@ -2,7 +2,7 @@
 
 - 版本：1.0
 - 日期：2026-10-29
-- 对应实现：安卓考试测试壳 1.7
+- 对应实现：安卓考试测试壳 1.8
 - 适用方式：默认原生接口注入，`native`
 
 本文面向 App 开发人员，说明 App 要做哪些工作、什么时候把什么值交给 WebView，以及这些值从哪里来。完整的 H5 接口定义与请求示例见 [开发对接文档](native-bridge-development.md)。
@@ -15,6 +15,7 @@
 | 准备凭据 | 读取租户的 appId/appKey，处理本机配置保存及读取失败 | App 有可用的签名凭据 |
 | 准备场次 | 取得同一场的 examination_id、exam_token，准备标题和考试类型 | 能拼出考试页 URL |
 | 创建 WebView | 开启 JavaScript、DOM Storage、听力播放、宽视口等设置 | 页面运行环境就绪 |
+| 显示考试内容 | 隐藏 H5 的 HSK 标题栏及其占位，保留原生工具入口 | 试卷使用更多内容区域 |
 | 保持考试常亮 | 考试 Activity onResume 设置 FLAG_KEEP_SCREEN_ON，onPause 清除 | 前台答题不自动熄屏，离开后恢复系统休眠策略 |
 | 注入接口 | 在 loadUrl 前注册 window.JxwBridge | 页面首段业务脚本可以调用 App |
 | 打开页面 | 把场次参数放入 hash 路由，调用 loadUrl | H5 得到当前场次参数 |

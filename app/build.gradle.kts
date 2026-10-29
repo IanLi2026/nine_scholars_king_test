@@ -27,9 +27,10 @@ android {
     defaultConfig {
         applicationId = "com.example.nine_scholars_king_test"
         minSdk = 24
-        targetSdk = 37
-        versionCode = 8
-        versionName = "1.7"
+        // API 36 with the manifest compatibility opt-out honors landscape on Android 16 tablets.
+        targetSdk = 36
+        versionCode = 9
+        versionName = "1.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "INTEGRATION_APP_ID",
